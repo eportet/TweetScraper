@@ -36,11 +36,11 @@ class TweetScraper(CrawlSpider):
         self.crawl_user = crawl_user
 
     def start_requests(self):
-        url = self.url % (quote(self.query), '')
+        url = self.url % (quote(' '.join(self.query.split(','))), '')
         yield http.Request(url, callback=self.parse_page)
 
     def parse_page(self, response):
-        # inspect_response(response, self)
+        # inspect_response(response)
         # handle current page
         data = json.loads(response.body.decode("utf-8"))
         for item in self.parse_tweets_block(data['items_html']):
@@ -66,6 +66,10 @@ class TweetScraper(CrawlSpider):
 
                 tweet['usernameTweet'] = item.xpath('.//span[@class="username u-dir"]/b/text()').extract()[0]
 
+                tweet['datetime'] = datetime.fromtimestamp(int(
+                    item.xpath('.//div[@class="stream-item-header"]/small[@class="time"]/a/span/@data-time').extract()[
+                        0])).strftime('%Y-%m-%d %H:%M:%S')
+                
                 ID = item.xpath('.//@data-tweet-id').extract()
                 if not ID:
                     continue
@@ -81,7 +85,6 @@ class TweetScraper(CrawlSpider):
                     continue
 
                 ### get meta data
-                tweet['url'] = item.xpath('.//@data-permalink-path').extract()[0]
 
                 nbr_retweet = item.css('span.ProfileTweet-action--retweet > span.ProfileTweet-actionCount').xpath(
                     '@data-tweet-stat-count').extract()
@@ -104,42 +107,38 @@ class TweetScraper(CrawlSpider):
                 else:
                     tweet['nbr_reply'] = 0
 
-                tweet['datetime'] = datetime.fromtimestamp(int(
-                    item.xpath('.//div[@class="stream-item-header"]/small[@class="time"]/a/span/@data-time').extract()[
-                        0])).strftime('%Y-%m-%d %H:%M:%S')
-
                 ### get photo
-                has_cards = item.xpath('.//@data-card-type').extract()
-                if has_cards and has_cards[0] == 'photo':
-                    tweet['has_image'] = True
-                    tweet['images'] = item.xpath('.//*/div/@data-image-url').extract()
-                elif has_cards:
-                    logger.debug('Not handle "data-card-type":\n%s' % item.xpath('.').extract()[0])
+                # has_cards = item.xpath('.//@data-card-type').extract()
+                # if has_cards and has_cards[0] == 'photo':
+                #     tweet['has_image'] = True
+                #     tweet['images'] = item.xpath('.//*/div/@data-image-url').extract()
+                # elif has_cards:
+                #     logger.debug('Not handle "data-card-type":\n%s' % item.xpath('.').extract()[0])
 
                 ### get animated_gif
-                has_cards = item.xpath('.//@data-card2-type').extract()
-                if has_cards:
-                    if has_cards[0] == 'animated_gif':
-                        tweet['has_video'] = True
-                        tweet['videos'] = item.xpath('.//*/source/@video-src').extract()
-                    elif has_cards[0] == 'player':
-                        tweet['has_media'] = True
-                        tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
-                    elif has_cards[0] == 'summary_large_image':
-                        tweet['has_media'] = True
-                        tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
-                    elif has_cards[0] == 'amplify':
-                        tweet['has_media'] = True
-                        tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
-                    elif has_cards[0] == 'summary':
-                        tweet['has_media'] = True
-                        tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
-                    elif has_cards[0] == '__entity_video':
-                        pass  # TODO
-                        # tweet['has_media'] = True
-                        # tweet['medias'] = item.xpath('.//*/div/@data-src').extract()
-                    else:  # there are many other types of card2 !!!!
-                        logger.debug('Not handle "data-card2-type":\n%s' % item.xpath('.').extract()[0])
+                # has_cards = item.xpath('.//@data-card2-type').extract()
+                # if has_cards:
+                #     if has_cards[0] == 'animated_gif':
+                #         tweet['has_video'] = True
+                #         tweet['videos'] = item.xpath('.//*/source/@video-src').extract()
+                #     elif has_cards[0] == 'player':
+                #         tweet['has_media'] = True
+                #         tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
+                #     elif has_cards[0] == 'summary_large_image':
+                #         tweet['has_media'] = True
+                #         tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
+                #     elif has_cards[0] == 'amplify':
+                #         tweet['has_media'] = True
+                #         tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
+                #     elif has_cards[0] == 'summary':
+                #         tweet['has_media'] = True
+                #         tweet['medias'] = item.xpath('.//*/div/@data-card-url').extract()
+                #     elif has_cards[0] == '__entity_video':
+                #         pass  # TODO
+                #         # tweet['has_media'] = True
+                #         # tweet['medias'] = item.xpath('.//*/div/@data-src').extract()
+                #     else:  # there are many other types of card2 !!!!
+                #         logger.debug('Not handle "data-card2-type":\n%s' % item.xpath('.').extract()[0])
 
                 is_reply = item.xpath('.//div[@class="ReplyingToContextBelowAuthor"]').extract()
                 tweet['is_reply'] = is_reply != []
@@ -148,6 +147,9 @@ class TweetScraper(CrawlSpider):
                 tweet['is_retweet'] = is_retweet != []
 
                 tweet['user_id'] = item.xpath('.//@data-user-id').extract()[0]
+                
+                tweet['url'] = "https://twitter.com" + item.xpath('.//@data-permalink-path').extract()[0]
+
                 yield tweet
 
                 if self.crawl_user:

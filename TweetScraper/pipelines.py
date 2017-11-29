@@ -65,15 +65,18 @@ class SaveToFilePipeline(object):
 
     def process_item(self, item, spider):
         if isinstance(item, Tweet):
-            savePath = os.path.join(self.saveTweetPath, item['ID'])
-            if os.path.isfile(savePath):
-                pass # simply skip existing items
-                ### or you can rewrite the file, if you don't want to skip:
+            savePath = os.path.join(self.saveTweetPath, "output.csv")#item['ID'])
+            if not os.path.isfile(savePath):
+                # Create new csv file
+                file = open(savePath,'w')
+                file.write('user;date;id;text;retweets;favorites;replies;is_reply;is_retweet;userid;url\n')
+                file.close()
                 # self.save_to_file(item,savePath)
-                # logger.info("Update tweet:%s"%dbItem['url'])
-            else:
-                self.save_to_file(item,savePath)
-                logger.debug("Add tweet:%s" %item['url'])
+                # logger.debug("Add tweet:%s" %item['url'])
+
+            self.save_to_file(item,savePath)
+            logger.debug("Add tweet:%s" %item['url'])
+            
 
         elif isinstance(item, User):
             savePath = os.path.join(self.saveUserPath, item['ID'])
@@ -95,5 +98,12 @@ class SaveToFilePipeline(object):
                 item - a dict like object
                 fname - where to save
         '''
-        with open(fname,'w') as f:
-            json.dump(dict(item), f)
+        s = list(map(str, dict(item).values()))
+        s[3] = ('"'+s[3]+'"').replace(';',':')
+        s = ';'.join(s).replace('\n','')
+        s += '\n'
+        file = open(fname,'a')
+        file.write(s)
+        file.close()
+
+
